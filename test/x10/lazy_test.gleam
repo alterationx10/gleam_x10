@@ -26,5 +26,4 @@ pub fn map_test() {
     |> lazy.run
     == Error(1)
 }
-
 // TODO the rest of the ~Owl~ tests...
