@@ -1,3 +1,6 @@
+import gleam/io
+import gleam/string
+
 pub opaque type Lazy(a, e) {
   Fn(computation: fn() -> Result(a, e))
   Fail(error: e)
@@ -8,6 +11,15 @@ pub opaque type Lazy(a, e) {
 
 pub fn lzy(f: fn() -> Result(a, e)) {
   Fn(f)
+}
+
+pub fn lzy_with(f: fn(a) -> Result(b, e), input: a) -> Lazy(b, e) {
+  Fn(fn() { f(input) })
+}
+
+pub fn debug(lzy: Lazy(a, e), msg: String) -> Lazy(a, e) {
+  lzy
+  |> tap(fn(a) { io.println(msg <> ": " <> string.inspect(a)) })
 }
 
 pub fn flat_map(lzy: Lazy(a, e), f: fn(a) -> Lazy(b, e)) -> Lazy(b, e) {
@@ -21,6 +33,17 @@ pub fn flat_map(lzy: Lazy(a, e), f: fn(a) -> Lazy(b, e)) -> Lazy(b, e) {
 
 pub fn map(lzy: Lazy(a, e), f: fn(a) -> b) -> Lazy(b, e) {
   flat_map(lzy, fn(x) { pure(f(x)) })
+}
+
+pub fn tap(lzy: Lazy(a, e), f: fn(a) -> Nil) -> Lazy(a, e) {
+  flat_map(lzy, fn(x) {
+    f(x)
+    pure(x)
+  })
+}
+
+pub fn flatten(lzy: Lazy(Lazy(a, e), e)) -> Lazy(a, e) {
+  flat_map(lzy, fn(inner) { inner })
 }
 
 pub fn pure(value: a) -> Lazy(a, e) {
@@ -67,14 +90,13 @@ pub fn as_result(lzy: Lazy(a, e), result: b) -> Lazy(b, e) {
   |> flat_map(fn(_) { pure(result) })
 }
 
-pub fn nil(lzy: Lazy(a, e)) -> Lazy(Nil, e) {
-  lzy
-  |> map(fn(_) { Nil })
+pub fn nil() -> Lazy(Nil, e) {
+  pure(Nil)
 }
 
 pub fn ignore(lzy: Lazy(a, e)) -> Lazy(Nil, Nil) {
   lzy
-  |> nil
+  |> as_result(Nil)
   |> map_error(fn(_) { Nil })
   |> recover(fn(_) { pure(Nil) })
 }
